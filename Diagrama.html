@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Brana — Diagramas de Flujo Operativos</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Cinzel:wght@400;600&display=swap');
+
+:root {
+  --ink:     #08080D;
+  --deep:    #0E0E16;
+  --card:    #111118;
+  --card2:   #16161E;
+  --border:  rgba(201,168,76,0.2);
+  --text:    #C8C0A0;
+  --muted:   #5A5448;
+  --gold:    #C9A84C;
+  --gold2:   #E8C96A;
+
+  /* por diagrama */
+  --v1:  #C9A84C;  /* ventas — gold */
+  --v1b: rgba(201,168,76,0.12);
+  --v2:  #7A9EE8;  /* marketing — blue */
+  --v2b: rgba(122,158,232,0.12);
+  --v3:  #6AEAC8;  /* producción — teal */
+  --v3b: rgba(106,234,200,0.12);
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--ink);
+  color: var(--text);
+  font-family: 'Crimson Pro', Georgia, serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* FONDO */
+body::before {
+  content:'';
+  position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:
+    radial-gradient(ellipse 800px 600px at 20% 10%, rgba(201,168,76,0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 600px 500px at 80% 80%, rgba(122,158,232,0.04) 0%, transparent 70%),
+    radial-gradient(1px 1px at 15% 30%, rgba(201,168,76,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 75% 15%, rgba(201,168,76,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 50% 70%, rgba(255,255,255,0.08) 0%, transparent 100%),
+    radial-gradient(1px 1px at 88% 50%, rgba(255,255,255,0.07) 0%, transparent 100%);
+}
+
+.page { position:relative; z-index:1; max-width:1100px; margin:0 auto; padding:2.5rem 1.5rem 6rem; }
+
+/* ── HEADER ── */
+.header { text-align:center; padding-bottom:3rem; margin-bottom:3rem; border-bottom:1px solid var(--border); }
+.header-sym { font-family:'Cinzel',serif; font-size:1.8rem; color:var(--gold); display:block; margin-bottom:.8rem; opacity:.7; }
+.header h1 { font-family:'Playfair Display',serif; font-size:clamp(2rem,5vw,3.2rem); color:#fff; font-weight:700; margin-bottom:.4rem; }
+.header-brand { font-family:'Cinzel',serif; font-size:.8rem; letter-spacing:.4em; color:var(--gold); display:block; margin-bottom:.5rem; }
+.header-sub { font-style:italic; color:var(--muted); font-size:1rem; }
+
+/* ── TABS ── */
+.tabs { display:flex; gap:0; margin-bottom:0; border-bottom:2px solid var(--border); }
+.tab {
+  flex:1; padding:1rem 1.2rem; text-align:center; cursor:pointer;
+  font-family:'Cinzel',serif; font-size:.72rem; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--muted); background:transparent; border:none;
+  border-bottom:3px solid transparent; margin-bottom:-2px;
+  transition:all .3s; position:relative;
+}
+.tab:hover { color:var(--text); }
+.tab.active-v1 { color:var(--v1); border-bottom-color:var(--v1); }
+.tab.active-v2 { color:var(--v2); border-bottom-color:var(--v2); }
+.tab.active-v3 { color:var(--v3); border-bottom-color:var(--v3); }
+.tab .tab-num { display:block; font-size:1.4rem; margin-bottom:.3rem; }
+
+/* ── DIAGRAMS ── */
+.diagram { display:none; padding-top:3rem; animation:fadeIn .4s ease; }
+.diagram.visible { display:block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+/* ── DIAGRAM HEADER ── */
+.d-header { display:flex; align-items:center; gap:1.5rem; margin-bottom:3rem; }
+.d-num { font-family:'Playfair Display',serif; font-size:4rem; font-weight:700; opacity:.15; line-height:1; flex-shrink:0; }
+.d1 .d-num { color:var(--v1); }
+.d2 .d-num { color:var(--v2); }
+.d3 .d-num { color:var(--v3); }
+.d-titles .d-title { font-family:'Playfair Display',serif; font-size:1.6rem; font-weight:700; }
+.d1 .d-title { color:var(--v1); }
+.d2 .d-title { color:var(--v2); }
+.d3 .d-title { color:var(--v3); }
+.d-titles .d-desc { font-style:italic; color:var(--muted); font-size:.95rem; margin-top:.3rem; }
+.d-line { flex:1; height:1px; }
+.d1 .d-line { background:linear-gradient(to right, var(--v1), transparent); }
+.d2 .d-line { background:linear-gradient(to right, var(--v2), transparent); }
+.d3 .d-line { background:linear-gradient(to right, var(--v3), transparent); }
+
+/* ══════════════════════════════════════════════
+   FLOWCHART ENGINE
+══════════════════════════════════════════════ */
+.flow { display:flex; flex-direction:column; align-items:center; gap:0; }
+
+/* connector arrow */
+.arrow {
+  width:2px; height:32px; position:relative; flex-shrink:0;
+  display:flex; flex-direction:column; align-items:center;
+}
+.arrow::before {
+  content:''; flex:1; width:2px;
+}
+.arrow::after {
+  content:''; width:0; height:0;
+  border-left:6px solid transparent;
+  border-right:6px solid transparent;
+  border-top:8px solid;
+  flex-shrink:0;
+}
+.d1 .arrow::before { background:var(--v1); }
+.d1 .arrow::after  { border-top-color:var(--v1); }
+.d2 .arrow::before { background:var(--v2); }
+.d2 .arrow::after  { border-top-color:var(--v2); }
+.d3 .arrow::before { background:var(--v3); }
+.d3 .arrow::after  { border-top-color:var(--v3); }
+
+/* labelled arrow */
+.arrow-label {
+  display:flex; flex-direction:column; align-items:center; gap:0;
+}
+.arrow-label .lbl {
+  font-family:'Cinzel',serif; font-size:.6rem; letter-spacing:.15em;
+  padding:.15rem .5rem; border:1px solid;
+  background:var(--ink); margin:4px 0;
+}
+.d1 .arrow-label .lbl { color:var(--v1); border-color:rgba(201,168,76,.3); }
+.d2 .arrow-label .lbl { color:var(--v2); border-color:rgba(122,158,232,.3); }
+.d3 .arrow-label .lbl { color:var(--v3); border-color:rgba(106,234,200,.3); }
+
+/* START / END pill */
+.node-pill {
+  padding:.55rem 2.2rem; border-radius:50px; border:2px solid;
+  font-family:'Cinzel',serif; font-size:.75rem; letter-spacing:.25em;
+  text-transform:uppercase; text-align:center;
+}
+.d1 .node-pill { color:var(--v1); border-color:var(--v1); background:var(--v1b); }
+.d2 .node-pill { color:var(--v2); border-color:var(--v2); background:var(--v2b); }
+.d3 .node-pill { color:var(--v3); border-color:var(--v3); background:var(--v3b); }
+
+/* PROCESS rectangle */
+.node-proc {
+  width:100%; max-width:560px; padding:1rem 1.4rem;
+  border:1px solid; background:var(--card);
+  transition:background .2s;
+}
+.node-proc:hover { background:var(--card2); }
+.d1 .node-proc { border-color:rgba(201,168,76,.3); }
+.d2 .node-proc { border-color:rgba(122,158,232,.3); }
+.d3 .node-proc { border-color:rgba(106,234,200,.3); }
+
+.node-proc .np-head {
+  font-family:'Cinzel',serif; font-size:.65rem; letter-spacing:.2em;
+  text-transform:uppercase; margin-bottom:.4rem;
+}
+.d1 .node-proc .np-head { color:var(--v1); }
+.d2 .node-proc .np-head { color:var(--v2); }
+.d3 .node-proc .np-head { color:var(--v3); }
+
+.node-proc .np-body {
+  font-size:.92rem; color:var(--text); line-height:1.5;
+}
+.node-proc .np-sub {
+  font-size:.82rem; color:var(--muted); font-style:italic;
+  margin-top:.35rem; line-height:1.4;
+}
+
+/* DECISION diamond */
+.node-dec-wrap {
+  display:flex; flex-direction:column; align-items:center; width:100%;
+}
+.diamond-outer {
+  position:relative;
+  width:220px; height:220px;
+  flex-shrink:0;
+}
+.diamond-outer::before {
+  content:''; position:absolute; inset:0;
+  transform:rotate(45deg); border:2px solid;
+  background:var(--card);
+}
+.d1 .diamond-outer::before { border-color:var(--v1); background:var(--v1b); }
+.d2 .diamond-outer::before { border-color:var(--v2); background:var(--v2b); }
+.d3 .diamond-outer::before { border-color:var(--v3); background:var(--v3b); }
+
+.diamond-inner {
+  position:absolute; inset:0;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding:1.5rem; text-align:center;
+}
+.diamond-inner .di-q {
+  font-family:'Cinzel',serif; font-size:.65rem; letter-spacing:.15em;
+  text-transform:uppercase; margin-bottom:.4rem;
+}
+.d1 .diamond-inner .di-q { color:var(--v1); }
+.d2 .diamond-inner .di-q { color:var(--v2); }
+.d3 .diamond-inner .di-q { color:var(--v3); }
+.diamond-inner .di-text { font-size:.88rem; color:#fff; line-height:1.4; font-weight:600; }
+
+/* branches from decision */
+.branches {
+  display:flex; align-items:flex-start; gap:0; width:100%; justify-content:center;
+}
+.branch {
+  display:flex; flex-direction:column; align-items:center; flex:1; max-width:280px;
+}
+.branch-line-h {
+  height:2px; width:100%;
+}
+.d1 .branch-line-h { background:var(--v1); }
+.d2 .branch-line-h { background:var(--v2); }
+.d3 .branch-line-h { background:var(--v3); }
+
+.branch-line-v {
+  width:2px; min-height:24px;
+}
+.d1 .branch-line-v { background:var(--v1); }
+.d2 .branch-line-v { background:var(--v2); }
+.d3 .branch-line-v { background:var(--v3); }
+
+.branch-arrow-down {
+  width:0; height:0;
+  border-left:6px solid transparent;
+  border-right:6px solid transparent;
+  border-top:8px solid;
+  margin:0;
+}
+.d1 .branch-arrow-down { border-top-color:var(--v1); }
+.d2 .branch-arrow-down { border-top-color:var(--v2); }
+.d3 .branch-arrow-down { border-top-color:var(--v3); }
+
+.branch-tag {
+  font-family:'Cinzel',serif; font-size:.62rem; letter-spacing:.2em;
+  padding:.2rem .6rem; border:1px solid; margin:4px 0;
+  background:var(--ink);
+}
+.d1 .branch-tag.yes  { color:#6EC886; border-color:rgba(110,200,134,.4); }
+.d1 .branch-tag.no   { color:#F87A7A; border-color:rgba(248,122,122,.4); }
+.d1 .branch-tag.alt  { color:var(--v1); border-color:rgba(201,168,76,.4); }
+.d2 .branch-tag.yes  { color:#6EC886; border-color:rgba(110,200,134,.4); }
+.d2 .branch-tag.no   { color:#F87A7A; border-color:rgba(248,122,122,.4); }
+.d2 .branch-tag.alt  { color:var(--v2); border-color:rgba(122,158,232,.4); }
+.d3 .branch-tag.yes  { color:#6EC886; border-color:rgba(110,200,134,.4); }
+.d3 .branch-tag.no   { color:#F87A7A; border-color:rgba(248,122,122,.4); }
+.d3 .branch-tag.alt  { color:var(--v3); border-color:rgba(106,234,200,.4); }
+
+/* merge note */
+.merge-note {
+  font-family:'Cinzel',serif; font-size:.62rem; letter-spacing:.15em;
+  color:var(--muted); font-style:italic; text-align:center; padding:.4rem 0;
+  border-top:1px dashed rgba(255,255,255,.1);
+  width:100%; max-width:560px;
+}
+
+/* side note box */
+.side-note {
+  max-width:560px; width:100%; padding:.7rem 1rem;
+  border-left:3px solid; background:rgba(255,255,255,.02);
+  font-size:.88rem; font-style:italic; color:var(--muted);
+}
+.d1 .side-note { border-color:rgba(201,168,76,.4); }
+.d2 .side-note { border-color:rgba(122,158,232,.4); }
+.d3 .side-note { border-color:rgba(106,234,200,.4); }
+
+/* parallel box */
+.parallel {
+  display:grid; gap:1px; width:100%; max-width:560px;
+  background:var(--border);
+}
+.parallel.cols2 { grid-template-columns:1fr 1fr; }
+.parallel.cols3 { grid-template-columns:1fr 1fr 1fr; }
+.par-cell { background:var(--card); padding:.8rem 1rem; }
+.par-cell .pc-lbl { font-family:'Cinzel',serif; font-size:.6rem; letter-spacing:.18em; margin-bottom:.3rem; }
+.d1 .par-cell .pc-lbl { color:var(--v1); }
+.d2 .par-cell .pc-lbl { color:var(--v2); }
+.d3 .par-cell .pc-lbl { color:var(--v3); }
+.par-cell .pc-text { font-size:.85rem; color:var(--text); line-height:1.4; }
+
+/* ── LEGEND ── */
+.legend {
+  display:flex; flex-wrap:wrap; gap:1.5rem; justify-content:center;
+  margin-top:3rem; padding-top:2rem; border-top:1px solid var(--border);
+}
+.leg-item { display:flex; align-items:center; gap:.6rem; font-size:.82rem; color:var(--muted); }
+.leg-shape { width:28px; height:18px; border:1.5px solid rgba(201,168,76,.5); background:transparent; flex-shrink:0; }
+.leg-diamond { width:18px; height:18px; border:1.5px solid rgba(201,168,76,.5); transform:rotate(45deg); flex-shrink:0; }
+.leg-pill { width:36px; height:18px; border-radius:20px; border:1.5px solid rgba(201,168,76,.5); flex-shrink:0; }
+.leg-arrow { width:24px; height:2px; background:rgba(201,168,76,.5); position:relative; flex-shrink:0; }
+.leg-arrow::after { content:''; position:absolute; right:-1px; top:-4px; width:0; height:0; border-left:6px solid rgba(201,168,76,.5); border-top:5px solid transparent; border-bottom:5px solid transparent; }
+
+/* ── FOOTER ── */
+.footer { text-align:center; margin-top:5rem; padding-top:2rem; border-top:1px solid var(--border); font-family:'Cinzel',serif; font-size:.7rem; letter-spacing:.2em; color:var(--muted); }
+
+/* ── PRINT / RESPONSIVE ── */
+@media (max-width:680px) {
+  .diamond-outer { width:180px; height:180px; }
+  .branches { flex-direction:column; align-items:center; }
+  .branch { max-width:100%; }
+  .tab .tab-num { font-size:1.1rem; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- HEADER -->
+<header class="header">
+  <span class="header-sym">◈ ◆ ◈</span>
+  <h1>Diagramas de Flujo Operativos</h1>
+  <span class="header-brand">B R A N A</span>
+  <p class="header-sub">Informe Técnico Integral v2.0 · Procesos de Ventas · Marketing · Producción y Logística</p>
+</header>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab active-v1" onclick="show(1)" id="tab1">
+    <span class="tab-num">💫</span>
+    Diagrama 1<br/>Ventas
+  </button>
+  <button class="tab" onclick="show(2)" id="tab2">
+    <span class="tab-num">📣</span>
+    Diagrama 2<br/>Marketing
+  </button>
+  <button class="tab" onclick="show(3)" id="tab3">
+    <span class="tab-num">⚙️</span>
+    Diagrama 3<br/>Producción &amp; Logística
+  </button>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     DIAGRAMA 1 — VENTAS
+════════════════════════════════════════════════════════════════════ -->
+<div class="diagram d1 visible" id="d1">
+
+  <div class="d-header">
+    <div class="d-num">01</div>
+    <div class="d-titles">
+      <div class="d-title">Proceso de Ventas</div>
+      <div class="d-desc">Desde el primer contacto del cliente hasta el registro del ingreso y la fidelización</div>
+    </div>
+    <div class="d-line"></div>
+  </div>
+
+  <div class="flow">
+
+    <!-- INICIO -->
+    <div class="node-pill">INICIO — Cliente descubre Brana</div>
+    <div class="arrow"></div>
+
+    <!-- CANAL DE ENTRADA -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Decisión</span>
+          <span class="di-text">¿Por qué canal entra el cliente?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag alt">Instagram DM</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Atención directa</div>
+            <div class="np-body">Responder DM en máx. 2hs. Presentar producto, talla disponible y precio. Tono cercano, auténtico, sin lenguaje corporativo.</div>
+          </div>
+        </div>
+        <div class="branch" style="flex-direction:column; align-items:center; padding-top:0;">
+          <div class="branch-line-v" style="min-height:0;height:0"></div>
+          <div class="branch-tag alt" style="margin-top:110px;">Mercado Libre</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Plataforma ML</div>
+            <div class="np-body">Consulta en listing. Responder en el sistema de ML. Ofrecer atención personalizada y redirigir a Instagram para consultas adicionales.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag alt">Evento Presencial</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Stand de Brana</div>
+            <div class="np-body">Atención cara a cara en recital o feria. Mostrar las prendas en exhibición. Invitar a seguir el Instagram. Posibilidad de cierre inmediato.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+    <div class="merge-note">↑ Los tres canales convergen en este punto del proceso ↓</div>
+    <div class="arrow"></div>
+
+    <!-- STOCK -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Decisión</span>
+          <span class="di-text">¿El producto consultado está en stock?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag no">NO</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Lista de espera</div>
+            <div class="np-body">Anotar al cliente en lista de restock. Notificar cuando haya nuevas unidades. Ofrecer diseño alternativo del catálogo vigente.</div>
+            <div class="np-sub">→ Registrar en planilla de demanda para próxima producción</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag yes">SÍ</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Presentar información completa</div>
+            <div class="np-body">Enviar foto de detalle del estampado, talla disponible, precio final, plazo de envío estimado y opciones de pago (MercadoPago / Transferencia).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+
+    <!-- CONFIRMA -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Decisión</span>
+          <span class="di-text">¿El cliente confirma la compra?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag no">NO / Sin respuesta</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Seguimiento 24-48 hs</div>
+            <div class="np-body">Enviar un único mensaje de seguimiento. Si no hay respuesta en 48hs, cerrar consulta cordialmente. Registrar como lead no convertido en planilla de KPIs.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag yes">SÍ — Confirma</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Solicitar datos de entrega</div>
+            <div class="np-body">Pedir nombre completo, dirección de envío (si aplica) o confirmar punto de retiro. Verificar disponibilidad de la talla solicitada en stock físico antes de cobrar.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+
+    <!-- PAGO -->
+    <div class="node-proc">
+      <div class="np-head">Paso 4 — Cobro</div>
+      <div class="np-body">Enviar datos de pago: alias/CBU para transferencia o link de MercadoPago. Informar precio total incluyendo envío si corresponde. Tiempo de espera máximo para acreditar el pago: 24hs.</div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- PAGO CONFIRMADO -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Decisión</span>
+          <span class="di-text">¿Se confirma el pago?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag no">NO acredita en 24hs</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Recordatorio único</div>
+            <div class="np-body">Enviar un solo recordatorio amable. Si no responde en otras 24hs: cancelar la reserva, liberar el stock y registrar como venta perdida en planilla.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag yes">SÍ — Pago acreditado</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Preparar el pedido</div>
+            <div class="np-body">Seleccionar la prenda del stock. Doblar cuidadosamente. Colocar papel de seda negro, bolsa de marca con logo Brana, etiqueta con nombre del cliente. Verificar que el estampado esté perfecto.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+
+    <!-- MODALIDAD DE ENTREGA -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Decisión</span>
+          <span class="di-text">¿Modalidad de entrega?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag alt">Envío por correo</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Despacho postal</div>
+            <div class="np-body">Embalar con burbuja si es necesario. Despachar por OCA, Andreani o correo argentino. Enviar número de seguimiento al cliente por DM dentro de las 24hs del pago.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag alt">Entrega presencial</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Entrega en evento / punto</div>
+            <div class="np-body">Coordinar fecha y lugar: próximo evento de Brana, o punto de encuentro en Palermo/CABA. Guardar el pedido etiquetado hasta la entrega.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+    <div class="merge-note">↑ Ambas modalidades confluyen en la confirmación de entrega ↓</div>
+    <div class="arrow"></div>
+
+    <!-- POST VENTA -->
+    <div class="node-proc">
+      <div class="np-head">Paso 6 — Confirmación de entrega y post-venta</div>
+      <div class="np-body">Confirmar con el cliente que recibió el pedido en condiciones. Solicitar foto usando la prenda para repostear en Stories (con crédito). Enviar link al perfil de IG para que deje reseña o etiquete a Brana.</div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- REGISTRO KPIs -->
+    <div class="node-proc">
+      <div class="np-head">Paso 7 — Registro en planilla de ventas (KPIs)</div>
+      <div class="np-body">Registrar: canal de origen (IG/ML/Evento), producto y talla vendidos, monto cobrado, fecha, modalidad de entrega y si el cliente es nuevo o recurrente. Actualizar el stock físico restando la unidad vendida.</div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- FIDELIZACIÓN -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Decisión</span>
+          <span class="di-text">¿Es un cliente recurrente o muy activo?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag yes">SÍ</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Lista de clientes VIP</div>
+            <div class="np-body">Añadir al grupo de notificación anticipada de nuevas colecciones. Ofrecerle acceso a preventa exclusiva en el próximo lanzamiento. Son los primeros en recibir teasers por DM.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag no">Cliente nuevo</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Activación de seguimiento</div>
+            <div class="np-body">Verificar que siga el perfil de Instagram. Si no lo hace, invitarlo amablemente. Quedará expuesto al contenido de la marca y al próximo lanzamiento de manera orgánica.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+    <div class="node-pill">FIN — Ciclo de venta completado</div>
+    <div class="arrow" style="height:16px"></div>
+    <div class="side-note">Reinicio del ciclo: el cliente entra en el ecosistema de comunicación de Brana y será alcanzado por la estrategia de expectativa del próximo lanzamiento.</div>
+
+  </div><!-- /flow -->
+</div><!-- /d1 -->
+
+<!-- ════════════════════════════════════════════════════════════════════
+     DIAGRAMA 2 — MARKETING
+════════════════════════════════════════════════════════════════════ -->
+<div class="diagram d2" id="d2">
+
+  <div class="d-header">
+    <div class="d-num">02</div>
+    <div class="d-titles">
+      <div class="d-title">Proceso de Marketing</div>
+      <div class="d-desc">Ciclo semanal de investigación, producción de contenido, lanzamiento y análisis de resultados</div>
+    </div>
+    <div class="d-line"></div>
+  </div>
+
+  <div class="flow">
+
+    <div class="node-pill">INICIO — Ciclo semanal de marketing</div>
+    <div class="arrow"></div>
+
+    <!-- INVESTIGACIÓN -->
+    <div class="node-proc">
+      <div class="np-head">Paso 1 — Investigación de tendencias (diaria · 30 min/día)</div>
+      <div class="np-body">Recorrer: Instagram (hashtags esotéricos/alternativos), TikTok (For You Page como radar), Pinterest (boards por temporada), Reddit y Tumblr (estéticas de nicho). Guardar capturas en carpeta de referencias.</div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- FILTRO BRANA -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Filtro de identidad</span>
+          <span class="di-text">¿La tendencia pasa el filtro Brana?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag no">NO pasa el filtro</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Archivar sin descartar</div>
+            <div class="np-body">Guardar en carpeta de referencia "no Brana". Una tendencia rechazada hoy puede aportar contexto o contraste conceptual en una colección futura. No se borra, se etiqueta.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag yes">SÍ pasa el filtro</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Documentar en board de tendencias</div>
+            <div class="np-body">Agregar al documento compartido del equipo con descripción del concepto, etapa del ciclo de vida (emergente/influencer/masiva), referencia visual y posible aplicación a diseño Brana.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+
+    <!-- ETAPA DE LA TENDENCIA -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Decisión</span>
+          <span class="di-text">¿En qué etapa está la tendencia?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag alt">Etapa 1 — Nicho</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Monitorear</div>
+            <div class="np-body">Aún demasiado temprano para diseñar. Registrar y hacer seguimiento semanal. Esperar que pase a la etapa de adopción por influencers para actuar.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag yes">Etapa 2 — Influencers ◈</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">ACTUAR → Diseñar</div>
+            <div class="np-body">Momento óptimo. Enviar referencia al equipo de diseño. Incorporar en la colección en producción o en la siguiente. Ventaja competitiva máxima antes de la masificación.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag no">Etapa 3-4 — Masiva</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Diferenciar o ignorar</div>
+            <div class="np-body">Si Brana ya tiene algo en esa línea: diferenciarlo con profundidad simbólica. Si es nueva: ignorar. Usar la saturación como señal para anticipar qué viene después.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+    <div class="merge-note">↑ Resultado de la investigación alimenta el calendario de contenido ↓</div>
+    <div class="arrow"></div>
+
+    <!-- CALENDARIO EDITORIAL -->
+    <div class="node-proc">
+      <div class="np-head">Paso 2 — Planificación quincenal del calendario editorial</div>
+      <div class="np-body">Definir los contenidos de las próximas dos semanas: qué se publica en feed (mín. 1/día), qué va en Stories (3-5/día) y qué Reel se produce esa semana. Asignar temas a los tres pilares: Producto, Identidad y Comunidad.</div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- TIPO DE CONTENIDO -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Clasificación</span>
+          <span class="di-text">¿Qué pilar de contenido se produce?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag alt">◈ PRODUCTO</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Fotografía de prenda</div>
+            <div class="np-body">Sesión de producto o lookbook. Detalle del estampado, plano general y detalle de tela. Post en feed + carrusel + Story con precio, tallas disponibles y CTA al DM.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag alt">◆ IDENTIDAD</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Proceso creativo / filosofía</div>
+            <div class="np-body">Behind the scenes del diseño, explicación de un símbolo, proceso de boceto a estampado, quote filosófica de la marca. Reel de proceso creativo. Construye universo más allá de la ropa.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag alt">✦ COMUNIDAD</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Repost / evento / colaboración</div>
+            <div class="np-body">Repost de cliente usando la prenda (con crédito). Contenido del evento presencial. Anuncio de colaboración con artista. Story de encuesta o pregunta a la comunidad.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+    <div class="merge-note">↑ Todo el contenido producido es publicado según el calendario ↓</div>
+    <div class="arrow"></div>
+
+    <!-- ¿LANZAMIENTO? -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Decisión clave</span>
+          <span class="di-text">¿Estamos en período de lanzamiento de colección?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag no">NO — Ciclo regular</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Publicación del calendario semanal</div>
+            <div class="np-body">Ejecutar el calendario editorial normal: feed diario + Stories + 1 Reel semanal. Prioridad: mantener la coherencia estética y la constancia por encima de la cantidad.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag yes">SÍ — Pre-lanzamiento activo</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Activar estrategia de expectativa 90 días</div>
+            <div class="np-body">Seguir el protocolo de 4 fases estricto por mes.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+
+    <!-- PROTOCOLO 90 DIAS -->
+    <div class="parallel cols2" style="max-width:560px; width:100%;">
+      <div class="par-cell">
+        <div class="pc-lbl">Mes 3 — SEMBRAR</div>
+        <div class="pc-text">Contenido filosófico y atmosférico ligado a la temática de la colección. Cambio sutil de paleta en Stories. Sin revelar nada concreto. El público siente que algo se viene.</div>
+      </div>
+      <div class="par-cell">
+        <div class="pc-lbl">Mes 2 — INSINUAR</div>
+        <div class="pc-text">Primera insinuación: detalle de tela, símbolo tipografiado o nombre velado. Foto de boceto borroso. Poll: «¿Están listos para lo que viene?». Aumentar la frecuencia de Stories.</div>
+      </div>
+      <div class="par-cell">
+        <div class="pc-lbl">Mes 1 — REVELAR</div>
+        <div class="pc-text">Reveal oficial del nombre de la colección. Teaser de la primera prenda. Countdown Stories con fecha de lanzamiento. Apertura de consultas por DM para preventa.</div>
+      </div>
+      <div class="par-cell" style="border-left:2px solid var(--v2);">
+        <div class="pc-lbl">Día D — LANZAR</div>
+        <div class="pc-text">Post de feed completo + Reel lookbook + Stories de venta con precio, talla y CTA al DM. El equipo en línea para atender todas las consultas en tiempo real durante las primeras 6hs.</div>
+      </div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- ADS -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Decisión</span>
+          <span class="di-text">¿El proyecto está en el mes 3 o posterior?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag no">NO — Meses 1 y 2</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Solo crecimiento orgánico</div>
+            <div class="np-body">Sin inversión en Ads todavía. Toda la energía va a la calidad del contenido orgánico, la presencia en eventos y la atención de DMs. Construir comunidad antes de pagar para ampliarla.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag yes">SÍ — Mes 3 en adelante</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Activar Meta Ads segmentado</div>
+            <div class="np-body">Segmento 2: Geo Palermo 5km + intereses moda/arte/rock. Segmento 3: intereses anime/J-rock/manga/cosplay. Creatividades diferenciadas por segmento. Budget escalonado desde $20.000 ARS/mes.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+
+    <!-- ANÁLISIS MENSUAL -->
+    <div class="node-proc">
+      <div class="np-head">Paso 5 — Análisis mensual de KPIs de marketing</div>
+      <div class="np-body">Medir: crecimiento de seguidores (meta: +80 a +150/mes según fase), engagement rate (meta: +4% mín.), alcance de posts, tasa de conversión de visitas al perfil en DMs, y CPA (costo por acción) de los Ads.</div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- CUMPLE OBJETIVOS -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Evaluación</span>
+          <span class="di-text">¿Se cumplen los objetivos del mes?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag no">NO — Por debajo del objetivo</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Revisión estratégica</div>
+            <div class="np-body">Analizar: ¿falla el horario de publicación? ¿el formato (Reel vs. carrusel)? ¿la temática resonó con la audiencia? Ajustar el calendario del mes siguiente con hipótesis específica.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag yes">SÍ — En objetivo o superior</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Mantener y escalar</div>
+            <div class="np-body">Identificar los dos o tres contenidos con mejor rendimiento del mes. Producir más piezas similares en el mes siguiente. Si hay Ads activos: aumentar el budget gradualmente en los creativos ganadores.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+
+    <!-- REUNIÓN -->
+    <div class="node-proc">
+      <div class="np-head">Paso 6 — Reunión quincenal del equipo</div>
+      <div class="np-body">Revisión del estado de la colección en producción, ajuste del calendario editorial, repaso de las tendencias detectadas en la quincena y planificación de eventos presenciales del próximo mes. Duración máxima: 45 minutos con agenda definida.</div>
+    </div>
+
+    <div class="arrow"></div>
+    <div class="node-pill">FIN del ciclo — Reinicio la próxima semana</div>
+
+  </div><!-- /flow -->
+</div><!-- /d2 -->
+
+<!-- ════════════════════════════════════════════════════════════════════
+     DIAGRAMA 3 — PRODUCCIÓN Y LOGÍSTICA
+════════════════════════════════════════════════════════════════════ -->
+<div class="diagram d3" id="d3">
+
+  <div class="d-header">
+    <div class="d-num">03</div>
+    <div class="d-titles">
+      <div class="d-title">Producción y Logística</div>
+      <div class="d-desc">Del concepto de colección al stock listo para vender, con control de calidad y entrega al flujo de ventas</div>
+    </div>
+    <div class="d-line"></div>
+  </div>
+
+  <div class="flow">
+
+    <div class="node-pill">INICIO — 6 meses antes del lanzamiento de colección</div>
+    <div class="arrow"></div>
+
+    <!-- FASE 1 -->
+    <div class="node-proc">
+      <div class="np-head">FASE 1 — Investigación · (–6 meses)</div>
+      <div class="np-body">Análisis profundo de tendencias culturales con filtro de identidad Brana. Definición del concepto central de la colección: nombre tentativo, eje temático, referentes visuales y paleta de colores orientativa. Entregable: documento de concepto aprobado por el equipo.</div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- CONCEPTO APROBADO -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Aprobación</span>
+          <span class="di-text">¿El concepto de colección está aprobado por el equipo?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag no">NO — Requiere ajuste</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Revisión de concepto</div>
+            <div class="np-body">El equipo identifica qué parte no es coherente con la identidad Brana (filtro de autenticidad). Se ajusta el eje temático o se cambia el referente cultural principal. Nueva ronda de aprobación.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag yes">SÍ — Concepto aprobado</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Documentar el concepto</div>
+            <div class="np-body">Registrar en el documento de colección: nombre oficial, paleta de 4-6 colores base, sistema simbólico (qué símbolos va a usar la colección), prendas previstas (remeras, buzos, pantalones) y cantidad estimada de diseños.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+
+    <!-- FASE 2 DISEÑO -->
+    <div class="node-proc">
+      <div class="np-head">FASE 2 — Diseño · (–5 a –4 meses)</div>
+      <div class="np-body">Elaboración de bocetos de cada estampado a mano o en digital. Revisión de referencias visuales del concepto aprobado. El equipo creativo trabaja sobre el sistema simbólico definido en la Fase 1.</div>
+    </div>
+    <div class="arrow"></div>
+
+    <div class="node-proc">
+      <div class="np-head">Vectorización y fichas técnicas</div>
+      <div class="np-body">Pasar los bocetos aprobados a vectores de alta resolución en Adobe Illustrator (formato AI y PDF). Crear ficha técnica por estampado: dimensiones, posición en la prenda (centro pecho, espalda, manga), número de colores para serigrafía, indicación de si aplica DTG para lotes pequeños.</div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- DISEÑO APROBADO -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Aprobación</span>
+          <span class="di-text">¿Todos los estampados están aprobados y listos para producción?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag no">NO — Correcciones</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Iterar el diseño</div>
+            <div class="np-body">Identificar qué aspecto no está resuelto: composición, legibilidad, escala o coherencia con la colección. Corregir y volver al paso de revisión. No avanzar a cotización con archivos sin aprobar.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag yes">SÍ — Archivos listos</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Archivar versión final</div>
+            <div class="np-body">Guardar los archivos definitivos en carpeta de producción nombrada por colección y fecha. Incluir: vectores AI, PDF de alta resolución y mockup digital sobre foto de prenda para referencia del proveedor.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+
+    <!-- FASE 3 PRODUCCIÓN -->
+    <div class="node-proc">
+      <div class="np-head">FASE 3 — Cotización y selección de proveedor · (–3 meses)</div>
+      <div class="np-body">Contactar mínimo 2 proveedores de camisetas lisas y 2 de estampado en CABA. Solicitar cotización para el volumen del lote previsto (10-20 unidades por diseño en Fase 1). Comparar: precio por unidad, calidad del material, tiempo de producción y opciones de técnica (serigrafía vs DTG).</div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- PROVEEDOR -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Decisión</span>
+          <span class="di-text">¿Se seleccionó el proveedor para esta colección?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag no">NO — Sin proveedor adecuado</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Ampliar búsqueda</div>
+            <div class="np-body">Buscar nuevos proveedores por referencias del sector (ferias de indumentaria, grupos de emprendedores textiles). Solicitar muestra física antes de confirmar. El tiempo de buffer en el cronograma de 6 meses absorbe estas demoras.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag yes">SÍ — Proveedor confirmado</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Confirmar orden de producción</div>
+            <div class="np-body">Enviar archivos de estampado finales, fichas técnicas, muestras de color y lote confirmado. Acordar por escrito: precio total, fecha de entrega comprometida y condiciones de reclamo por defectos. Pagar el anticipo acordado (generalmente 50%).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+
+    <!-- COMPRA MATERIALES -->
+    <div class="node-proc">
+      <div class="np-head">Compra de materiales · (–3 a –2 meses)</div>
+      <div class="np-body">Si el proveedor de camisetas es separado del de estampado: comprar las prendas base, inspeccionarlas y llevarlas al taller de estampado. Verificar tallas disponibles según la distribución del lote (S/M/L/XL en proporciones según historial de ventas).</div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- PRODUCCIÓN DEL LOTE -->
+    <div class="node-proc">
+      <div class="np-head">Producción del lote · (–2 meses)</div>
+      <div class="np-body">El proveedor ejecuta el estampado según los archivos entregados. Técnica según volumen: serigrafía para lotes de 20+ unidades por diseño (mejor costo y durabilidad), DTG para lotes de 5-15 unidades (mayor detalle, sin inversión en matrices). Plazo estimado: 5 a 10 días hábiles.</div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- RECEPCIÓN -->
+    <div class="node-proc">
+      <div class="np-head">Recepción de la mercadería</div>
+      <div class="np-body">Retirar el lote en el taller o recibir el envío. Verificar la cantidad antes de firmar cualquier remito. Fotografiar el paquete al recibir como registro ante posibles reclamos.</div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- CONTROL DE CALIDAD -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Control crítico</span>
+          <span class="di-text">¿La prenda pasa el control de calidad unidad por unidad?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag no">NO — Con defecto</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Reclamo y reposición</div>
+            <div class="np-body">Separar las unidades con defecto. Documentar con fotos. Enviar reclamo formal al proveedor. Exigir reposición de las unidades defectuosas dentro del plazo acordado. No vender prendas con fallas bajo ningún concepto: afecta directamente la reputación de marca.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag yes">SÍ — Aprobada</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Prenda habilitada para packaging</div>
+            <div class="np-body">Verificar: estampado bien centrado y sin defectos, color uniforme, costura íntegra y talla correcta según etiqueta. Una vez aprobada, la prenda pasa a la siguiente etapa sin revisión adicional.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+
+    <!-- PACKAGING -->
+    <div class="node-proc">
+      <div class="np-head">Packaging con identidad Brana</div>
+      <div class="np-body">Doblar la prenda cuidadosamente. Envolver en papel de seda negro. Colocar en bolsa negra con logo impreso de Brana. Pegar etiqueta autoadhesiva con nombre de la colección, SKU y talla. Apilar por talla en cajones o estantes etiquetados.</div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- INGRESO A STOCK -->
+    <div class="node-proc">
+      <div class="np-head">Ingreso a stock e inventario</div>
+      <div class="np-body">Registrar en la planilla de stock: nombre de la colección, diseño/SKU, talla, cantidad por talla, costo unitario de producción y precio de venta asignado. Actualizar el total de unidades disponibles. Esta planilla es la fuente de verdad para el equipo de ventas.</div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- SESIÓN FOTOGRÁFICA -->
+    <div class="node-proc">
+      <div class="np-head">Sesión fotográfica de producto con dirección de arte Brana · (–1 mes)</div>
+      <div class="np-body">Fotografiar todas las prendas del lote: plano general de la prenda, detalle del estampado y foto de uso (lookbook) en locaciones coherentes con la estética de la colección. Las fotos deben estar editadas y listas antes del inicio de la campaña de expectativa del Mes 1. Entregable: carpeta de imágenes editadas clasificadas por prenda y uso.</div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- ARCHIVOS LISTOS -->
+    <div class="node-proc">
+      <div class="np-head">Archivos listos para campaña de expectativa</div>
+      <div class="np-body">Las imágenes editadas se entregan al área de marketing. A partir de este punto, producción y marketing trabajan en paralelo: mientras el stock espera el lanzamiento, el equipo de marketing ejecuta los 90 días de expectativa progresiva.</div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- ¿LANZAR? -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Timing</span>
+          <span class="di-text">¿Es la fecha de lanzamiento programada?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag no">NO — Aún en período de espera</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Almacenamiento hasta la fecha</div>
+            <div class="np-body">El stock permanece empaquetado y almacenado en condiciones adecuadas (sin humedad, sin aplastamiento). La campaña de expectativa de 90 días en redes ya está en marcha. No se vende nada antes del Día D salvo preventa controlada.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag yes">SÍ — DÍA D ◈</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Activar el canal de Ventas</div>
+            <div class="np-body">El stock está disponible para despacho inmediato. Se activa el flujo de ventas (Diagrama 1). El equipo de marketing publica el lanzamiento completo. El equipo de operaciones queda disponible para preparar pedidos desde las primeras horas del lanzamiento.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+
+    <!-- REABASTECIMIENTO -->
+    <div class="node-dec-wrap">
+      <div class="diamond-outer">
+        <div class="diamond-inner">
+          <span class="di-q">Control de stock</span>
+          <span class="di-text">¿Alguna talla o diseño cae por debajo del 20% del stock inicial?</span>
+        </div>
+      </div>
+      <div class="branches">
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag yes">SÍ — Stock crítico</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Evaluación de restock</div>
+            <div class="np-body">Analizar si el diseño justifica una reposición (bestseller) o si se deja agotar (exclusividad de la colección). Si se decide reponer: abrir orden de producción urgente con el mismo proveedor. Si no: comunicar «últimas unidades» en Stories para generar urgencia de compra.</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-line-h"></div>
+          <div class="branch-line-v"></div>
+          <div class="branch-tag no">NO — Stock normal</div>
+          <div class="branch-line-v"></div>
+          <div class="branch-arrow-down"></div>
+          <div style="height:8px"></div>
+          <div class="node-proc">
+            <div class="np-head">Continuar el ciclo de ventas</div>
+            <div class="np-body">El stock de la colección vigente se vende en ritmo normal. En paralelo, el equipo ya está ejecutando la Fase 1 de investigación para la siguiente colección. El ciclo de 6 meses ya empezó.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"></div>
+
+    <div class="node-proc">
+      <div class="np-head">Cierre de colección — Registro de métricas productivas</div>
+      <div class="np-body">Al finalizar el período de venta de la colección, registrar: unidades producidas vs. vendidas, diseño bestseller, talla más vendida, porcentaje de stock agotado, costo de producción total vs. ingresos generados, y tiempo real del ciclo de producción. Esta información alimenta la planificación del volumen de la siguiente colección.</div>
+    </div>
+
+    <div class="arrow"></div>
+    <div class="node-pill">FIN — Ciclo productivo completado · Inicio del siguiente</div>
+    <div class="arrow" style="height:16px"></div>
+    <div class="side-note">La siguiente colección ya está en Fase 2 (Diseño) mientras ésta está en venta. Los ciclos se superponen para garantizar continuidad sin vacíos de stock.</div>
+
+  </div><!-- /flow -->
+</div><!-- /d3 -->
+
+<!-- LEYENDA -->
+<div class="legend">
+  <div class="leg-item"><div class="leg-pill"></div> Inicio / Fin del proceso</div>
+  <div class="leg-item"><div class="leg-shape"></div> Proceso o acción</div>
+  <div class="leg-item"><div class="leg-diamond"></div> Punto de decisión</div>
+  <div class="leg-item"><div class="leg-arrow"></div> Dirección del flujo</div>
+  <div class="leg-item"><span style="color:#6EC886;font-size:.9rem;margin-right:.3rem">SÍ</span> Rama afirmativa</div>
+  <div class="leg-item"><span style="color:#F87A7A;font-size:.9rem;margin-right:.3rem">NO</span> Rama negativa o alternativa</div>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <p>◈ &nbsp; B R A N A · DIAGRAMAS DE FLUJO OPERATIVOS · INFORME TÉCNICO INTEGRAL v2.0 &nbsp; ◈</p>
+  <p style="margin-top:.5rem;font-size:.62rem;">Buenos Aires, 2025 · Documento Confidencial de Uso Interno</p>
+</footer>
+
+</div><!-- /page -->
+
+<script>
+function show(n) {
+  [1,2,3].forEach(i => {
+    document.getElementById('d'+i).classList.remove('visible');
+    document.getElementById('tab'+i).className = 'tab';
+  });
+  document.getElementById('d'+n).classList.add('visible');
+  document.getElementById('tab'+n).classList.add('active-v'+n);
+}
+</script>
+</body>
+</html>
